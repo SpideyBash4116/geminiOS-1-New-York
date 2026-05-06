@@ -9,6 +9,11 @@ import { TopBar } from './components/TopBar';
 import { Dock } from './components/Dock';
 import { Window } from './components/Window';
 import { Dashboard } from './components/Dashboard';
+import { StartMenu } from './components/StartMenu';
+import { LoginScreen } from './components/LoginScreen';
+import { RecoveryScreen } from './components/RecoveryScreen';
+import { SecurityOverlay } from './components/SecurityOverlay';
+import { SystemOverlays } from './components/SystemOverlays';
 
 // Lazy load apps to keep initial bundle light
 const TerminalApp = React.lazy(() => import('./components/apps/Terminal'));
@@ -16,6 +21,7 @@ const EchoApp = React.lazy(() => import('./components/apps/Echo'));
 const NotesApp = React.lazy(() => import('./components/apps/Notes'));
 const FilesApp = React.lazy(() => import('./components/apps/Files'));
 const SettingsApp = React.lazy(() => import('./components/apps/Settings'));
+const BrowserApp = React.lazy(() => import('./components/apps/Browser'));
 
 export default function App() {
   const os = useOS();
@@ -24,11 +30,12 @@ export default function App() {
 
   const renderAppContent = (appId: string, windowId: string) => {
     switch (appId) {
-      case 'terminal': return <TerminalApp />;
-      case 'echo': return <EchoApp />;
-      case 'notes': return <NotesApp />;
-      case 'files': return <FilesApp />;
-      case 'settings': return <SettingsApp />;
+      case 'terminal': return <TerminalApp windowId={windowId} />;
+      case 'echo': return <EchoApp windowId={windowId} />;
+      case 'notes': return <NotesApp windowId={windowId} />;
+      case 'files': return <FilesApp windowId={windowId} />;
+      case 'settings': return <SettingsApp windowId={windowId} />;
+      case 'browser': return <BrowserApp windowId={windowId} />;
       default: return (
         <div className="flex items-center justify-center h-full text-white/20 select-none">
           <div className="text-center">
@@ -40,14 +47,14 @@ export default function App() {
     }
   };
 
-  const [isBooting, setIsBooting] = React.useState(true);
-
   React.useEffect(() => {
-    const timer = setTimeout(() => setIsBooting(false), 2000);
-    return () => clearTimeout(timer);
-  }, []);
+    if (os.systemState === 'booting') {
+       const timer = setTimeout(() => os.setSystemState('login'), 2000);
+       return () => clearTimeout(timer);
+    }
+  }, [os.systemState, os.setSystemState]);
 
-  if (isBooting) {
+  if (os.systemState === 'booting') {
     return (
       <div className="h-screen w-screen bg-[#050505] flex flex-col items-center justify-center font-sans cursor-wait">
         <div className="flex flex-col gap-1 items-start">
@@ -64,15 +71,22 @@ export default function App() {
     );
   }
 
+  if (os.systemState === 'login') return <LoginScreen />;
+  if (os.systemState === 'recovery') return <RecoveryScreen />;
+  if (os.systemState === 'security_options') return <SecurityOverlay />;
+
   return (
     <div 
       className="h-screen w-screen overflow-hidden bg-cover bg-center relative transition-all duration-1000"
       style={{ backgroundImage: `url(${os.wallpaper})` }}
     >
+      <SystemOverlays />
       {/* OS Overlay / Vignette */}
       <div className="absolute inset-0 bg-black/40 backdrop-brightness-75 pointer-events-none" />
       
       <TopBar activeAppTitle={activeWindow?.title} />
+      
+      <StartMenu />
 
       {/* Desktop Workspace */}
       <main className="absolute inset-0 pt-10 pb-24 overflow-hidden flex items-center justify-center">

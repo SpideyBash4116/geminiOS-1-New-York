@@ -4,20 +4,38 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useOS } from '../../context/OSContext';
 
 interface LogEntry {
   type: 'input' | 'output' | 'error';
   text: string;
 }
 
-export default function Terminal() {
+export default function Terminal({ windowId }: { windowId?: string }) {
+  const { vfs, writeFile, deleteFile, windows } = useOS();
   const [logs, setLogs] = useState<LogEntry[]>([
     { type: 'output', text: 'geminiOS [Version 0.1.0-NY]' },
     { type: 'output', text: '(c) 2026 Google DeepMind. All rights reserved.' },
     { type: 'output', text: 'Type "help" to see available commands.' },
   ]);
   const [input, setInput] = useState('');
+  const [currentPath, setCurrentPath] = useState('user');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (windowId) {
+      const win = windows.find(w => w.id === windowId);
+      if (win?.params?.fileId) {
+        const file = vfs[win.params.fileId];
+        if (file) {
+          setLogs(prev => [...prev, 
+            { type: 'input', text: `> Opening ${file.name}...` },
+            { type: 'output', text: file.content || '(Empty file)' }
+          ]);
+        }
+      }
+    }
+  }, [windowId, windows, vfs]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -26,7 +44,9 @@ export default function Terminal() {
   }, [logs]);
 
   const handleCommand = (cmd: string) => {
-    const trimmed = cmd.trim().toLowerCase();
+    const parts = cmd.trim().split(/\s+/);
+    const trimmed = parts[0].toLowerCase();
+    const args = parts.slice(1);
     const newLogs: LogEntry[] = [{ type: 'input', text: `> ${cmd}` }];
 
     if (!trimmed) {
@@ -34,24 +54,73 @@ export default function Terminal() {
        return;
     }
 
+    const currentFolder = vfs[currentPath];
+
     switch (trimmed) {
       case 'help':
-        newLogs.push({ type: 'output', text: 'Available commands: help, clear, ls, cat, date, whoami, neofetch' });
+        newLogs.push({ type: 'output', text: 'Available commands:\nhelp - Show this message\nclear - Clear terminal\nls - List directory contents\npwd - Show current directory\ncat [file] - Display file content\ntouch [file] - Create empty file\nmkdir [dir] - Create directory\nrm [file] - Remove file\necho [text] - Print text\nwhoami - Show current user\nneofetch - Show system info' });
         break;
       case 'clear':
         setLogs([]);
         return;
-      case 'date':
-        newLogs.push({ type: 'output', text: new Date().toString() });
+      case 'pwd':
+        newLogs.push({ type: 'output', text: `/${currentPath.replace('root/', '')}` });
+        break;
+      case 'ls':
+        const content = currentFolder.children?.map(id => {
+          const item = vfs[id];
+          return item.type === 'directory' ? `${item.name}/` : item.name;
+        }).join('  ') || '';
+        newLogs.push({ type: 'output', text: content || 'Directory is empty' });
         break;
       case 'whoami':
         newLogs.push({ type: 'output', text: 'user@geminiOS' });
         break;
-      case 'ls':
-        newLogs.push({ type: 'output', text: 'Documents/  notes.txt  system/  bin/' });
+      case 'echo':
+        newLogs.push({ type: 'output', text: args.join(' ') });
         break;
-      case 'cat notes.txt':
-        newLogs.push({ type: 'output', text: 'Welcome to geminiOS. This is a local file stored in VFS.' });
+      case 'cat':
+        if (!args[0]) {
+          newLogs.push({ type: 'error', text: 'cat: missing operand' });
+        } else {
+          const fileId = currentFolder.children?.find(id => vfs[id].name === args[0]);
+          if (fileId && vfs[fileId].type === 'file') {
+            newLogs.push({ type: 'output', text: vfs[fileId].content || '(Empty file)' });
+          } else {
+            newLogs.push({ type: 'error', text: `cat: ${args[0]}: No such file` });
+          }
+        }
+        break;
+      case 'touch':
+        if (!args[0]) {
+          newLogs.push({ type: 'error', text: 'touch: missing operand' });
+        } else {
+          const id = `file-${Date.now()}`;
+          writeFile(id, args[0], '', 'file', currentPath);
+          newLogs.push({ type: 'output', text: `Created file: ${args[0]}` });
+        }
+        break;
+      case 'mkdir':
+        if (!args[0]) {
+          newLogs.push({ type: 'error', text: 'mkdir: missing operand' });
+        } else {
+          const id = `dir-${Date.now()}`;
+          writeFile(id, args[0], '', 'directory', currentPath);
+          newLogs.push({ type: 'output', text: `Created directory: ${args[0]}` });
+        }
+        break;
+      case 'rm':
+        if (!args[0]) {
+          newLogs.push({ type: 'error', text: 'rm: missing operand' });
+        } else {
+          const fileId = currentFolder.children?.find(id => vfs[id].name === args[0]);
+          if (fileId) {
+            deleteFile(fileId);
+            newLogs.push({ type: 'output', text: `Removed: ${args[0]}` });
+          } else {
+            newLogs.push({ type: 'error', text: `rm: cannot remove '${args[0]}': No such file or directory` });
+          }
+        }
         break;
       case 'neofetch':
         newLogs.push({ type: 'output', text: `
@@ -59,8 +128,10 @@ export default function Terminal() {
   ( o.o )     -------------
    > ^ <      OS: geminiOS NY
               Kernel: 0.1.0
-              Uptime: 2m
+              Uptime: 14m
               Shell: gsh 1.0
+              Resolution: 1920x1080
+              WM: Metropolis
 ` });
         break;
       default:

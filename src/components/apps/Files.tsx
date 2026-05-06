@@ -7,16 +7,27 @@ import React, { useState } from 'react';
 import { useOS } from '../../context/OSContext';
 import { Folder, File, ChevronRight, Home, ArrowLeft } from 'lucide-react';
 
-export default function Files() {
-  const { vfs } = useOS();
+export default function Files({ windowId }: { windowId?: string }) {
+  const { vfs, openApp } = useOS();
   const [currentId, setCurrentId] = useState('user');
 
   const currentFolder = vfs[currentId];
   const items = currentFolder.children?.map(id => vfs[id]) || [];
 
-  const navigateTo = (id: string) => {
-    if (vfs[id].type === 'directory') {
-      setCurrentId(id);
+  const handleDoubleClick = (item: any) => {
+    if (item.type === 'directory') {
+      setCurrentId(item.id);
+    } else {
+      // Logic for opening files
+      if (item.name.endsWith('.txt')) {
+        openApp('notes', { fileId: item.id });
+      } else if (item.name.endsWith('.pdf')) {
+        // Mock opening PDF or just launching relevant app
+        openApp('notes', { fileId: item.id, mode: 'preview' });
+      } else {
+        // Default to terminal or something else
+        openApp('terminal', { fileId: item.id });
+      }
     }
   };
 
@@ -63,7 +74,7 @@ export default function Files() {
           {items.map((item) => (
             <div 
               key={item.id}
-              onDoubleClick={() => navigateTo(item.id)}
+              onDoubleClick={() => handleDoubleClick(item)}
               className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group"
             >
               <div className={`w-12 h-12 flex items-center justify-center transition-transform group-active:scale-95 ${

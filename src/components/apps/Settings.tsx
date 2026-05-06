@@ -30,7 +30,7 @@ const WALLPAPERS = [
   },
 ];
 
-export default function Settings() {
+export default function Settings({ windowId }: { windowId?: string }) {
   const { wallpaper, setWallpaper } = useOS();
 
   return (

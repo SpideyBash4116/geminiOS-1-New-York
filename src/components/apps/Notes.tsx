@@ -3,13 +3,45 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
 import { FileText, Eye, Edit3, Save } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import { useOS } from '../../context/OSContext';
 
-export default function Notes() {
-  const [content, setContent] = useState('# Project: geminiOS NY\n\n## Status\n- Build: ALPHA\n- UI: Metropolis / Industrial\n- Core: React + Motion\n\n## Roadmap\n1. [x] Core Shell\n2. [x] Terminal Module\n3. [x] Echo AI Integration\n4. [ ] Multi-User Persistence\n');
+export default function Notes({ windowId }: { windowId?: string }) {
+  const { windows, vfs, writeFile } = useOS();
+  const [content, setContent] = useState('');
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
+  const [fileName, setFileName] = useState('New Note');
+  const [fileId, setFileId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (windowId) {
+      const win = windows.find(w => w.id === windowId);
+      if (win?.params?.fileId) {
+        const file = vfs[win.params.fileId];
+        if (file) {
+          setFileId(file.id);
+          setFileName(file.name);
+          setContent(file.content || '');
+        }
+      } else {
+        setContent('# Welcome to geminiOS Notes\n\n- Write and edit markdown\n- Instant preview\n- Metropolis styled\n');
+      }
+    }
+  }, [windowId, windows, vfs]);
+
+  const handleSave = () => {
+    if (fileId) {
+      const file = vfs[fileId];
+      writeFile(fileId, file.name, content, 'file', file.parentId!);
+    } else {
+      // Create new file in user directory by default
+      const newId = `note-${Date.now()}`;
+      writeFile(newId, fileName.includes('.') ? fileName : `${fileName}.txt`, content, 'file', 'user');
+      setFileId(newId);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-black/50">
@@ -17,14 +49,18 @@ export default function Notes() {
       <div className="h-10 bg-white/5 border-b border-white/5 flex items-center justify-between px-4">
         <div className="flex items-center gap-2 text-white/50">
            <FileText size={16} />
-           <span className="text-[10px] uppercase font-bold tracking-widest">README.md</span>
+           <input 
+              className="bg-transparent border-none outline-none text-[10px] uppercase font-bold tracking-widest text-white/80 w-32"
+              value={fileName}
+              onChange={(e) => setFileName(e.target.value)}
+           />
         </div>
 
         <div className="flex items-center gap-1">
            <button 
               onClick={() => setMode('edit')}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${
-                mode === 'edit' ? 'bg-os-accent text-black' : 'text-white/40 hover:bg-white/5'
+                mode === 'edit' ? 'bg-[#3B82F6] text-white' : 'text-white/40 hover:bg-white/5'
               }`}
            >
               <Edit3 size={12} /> Edit
@@ -32,13 +68,16 @@ export default function Notes() {
            <button 
               onClick={() => setMode('preview')}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${
-                mode === 'preview' ? 'bg-os-accent text-black' : 'text-white/40 hover:bg-white/5'
+                mode === 'preview' ? 'bg-[#3B82F6] text-white' : 'text-white/40 hover:bg-white/5'
               }`}
            >
               <Eye size={12} /> Preview
            </button>
            <div className="w-px h-4 bg-white/10 mx-1" />
-           <button className="p-1.5 text-white/40 hover:text-white transition-colors">
+           <button 
+              onClick={handleSave}
+              className="p-1.5 text-white/40 hover:text-white transition-colors"
+           >
               <Save size={14} />
            </button>
         </div>

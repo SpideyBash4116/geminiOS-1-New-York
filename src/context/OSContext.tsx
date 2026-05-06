@@ -4,17 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { AppId, WindowState, OSState, FileEntry } from '../types';
-
-interface OSContextType extends OSState {
-  openApp: (id: AppId) => void;
-  closeWindow: (id: string) => void;
-  focusWindow: (id: string) => void;
-  toggleMinimize: (id: string) => void;
-  toggleMaximize: (id: string) => void;
-  updateWindowPosition: (id: string, x: number, y: number) => void;
-  setWallpaper: (url: string) => void;
-}
+import { AppId, WindowState, OSState, FileEntry, OSContextType } from '../types';
 
 const OSContext = createContext<OSContextType | undefined>(undefined);
 
@@ -42,17 +32,42 @@ export function OSProvider({ children }: { children: ReactNode }) {
     activeWindowId: null,
     wallpaper: 'https://images.unsplash.com/photo-1496871230353-066fc0371309?q=80&w=2070&auto=format&fit=crop',
     vfs: INITIAL_VFS,
+    isStartMenuOpen: false,
+    systemState: 'booting',
   });
 
-  const openApp = useCallback((appId: AppId) => {
+  const setSystemState = useCallback((systemState: import('../types').SystemState) => {
+    setState(prev => ({ ...prev, systemState, isStartMenuOpen: false }));
+  }, []);
+
+  const logout = useCallback(() => {
+    setState(prev => ({ 
+      ...prev, 
+      systemState: 'login', 
+      windows: [], 
+      activeWindowId: null,
+      isStartMenuOpen: false 
+    }));
+  }, []);
+
+  const toggleStartMenu = useCallback((open?: boolean) => {
+    setState(prev => ({
+      ...prev,
+      isStartMenuOpen: open !== undefined ? open : !prev.isStartMenuOpen
+    }));
+  }, []);
+
+  const openApp = useCallback((appId: AppId, params?: Record<string, any>) => {
     setState((prev) => {
-      const existing = prev.windows.find((w) => w.appId === appId);
+      // Close start menu when opening an app
+      const newState = { ...prev, isStartMenuOpen: false };
+      const existing = newState.windows.find((w) => w.appId === appId);
       if (existing) {
         return {
-          ...prev,
+          ...newState,
           activeWindowId: existing.id,
-          windows: prev.windows.map((w) =>
-            w.id === existing.id ? { ...w, isMinimized: false } : w
+          windows: newState.windows.map((w) =>
+            w.id === existing.id ? { ...w, isMinimized: false, params: params || w.params } : w
           ),
         };
       }
@@ -71,6 +86,7 @@ export function OSProvider({ children }: { children: ReactNode }) {
         y: 80 + prev.windows.length * 40,
         width: config.defaultWidth,
         height: config.defaultHeight,
+        params,
       };
 
       return {
@@ -129,6 +145,53 @@ export function OSProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, wallpaper: url }));
   }, []);
 
+  const writeFile = useCallback((id: string, name: string, content: string, type: 'file' | 'directory', parentId: string) => {
+    setState(prev => {
+      const newVfs = { ...prev.vfs };
+      newVfs[id] = {
+        id,
+        name,
+        type,
+        content,
+        parentId,
+        updatedAt: Date.now(),
+        children: type === 'directory' ? [] : undefined
+      };
+      
+      // Update parent's children
+      if (newVfs[parentId]) {
+        newVfs[parentId] = {
+          ...newVfs[parentId],
+          children: [...(newVfs[parentId].children || []), id]
+        };
+      }
+      
+      return { ...prev, vfs: newVfs };
+    });
+  }, []);
+
+  const deleteFile = useCallback((id: string) => {
+    setState(prev => {
+      if (id === 'root' || id === 'home' || id === 'user') return prev; // Protect core folders
+      
+      const newVfs = { ...prev.vfs };
+      const item = newVfs[id];
+      if (!item) return prev;
+
+      const parentId = item.parentId;
+      delete newVfs[id];
+
+      if (parentId && newVfs[parentId]) {
+        newVfs[parentId] = {
+          ...newVfs[parentId],
+          children: (newVfs[parentId].children || []).filter(childId => childId !== id)
+        };
+      }
+
+      return { ...prev, vfs: newVfs };
+    });
+  }, []);
+
   return (
     <OSContext.Provider value={{
       ...state,
@@ -139,6 +202,11 @@ export function OSProvider({ children }: { children: ReactNode }) {
       toggleMaximize,
       updateWindowPosition,
       setWallpaper,
+      toggleStartMenu,
+      setSystemState,
+      logout,
+      writeFile,
+      deleteFile,
     }}>
       {children}
     </OSContext.Provider>

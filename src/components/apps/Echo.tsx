@@ -13,7 +13,7 @@ interface Message {
   content: string;
 }
 
-export default function Echo() {
+export default function Echo({ windowId }: { windowId?: string }) {
   const [messages, setMessages] = useState<Message[]>([
     { role: 'model', content: "System online. I am Echo, your integrated intelligence for geminiOS. How can I assist your workflow today?" }
   ]);
