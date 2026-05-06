@@ -21,6 +21,7 @@ const APPS: { id: AppId; icon: React.ReactNode; label: string; color: string }[]
   { id: 'notes', icon: <FileText size={20} />, label: 'Notes', color: 'bg-emerald-600' },
   { id: 'browser', icon: <Globe size={20} />, label: 'Hyperlink', color: 'bg-purple-600' },
   { id: 'settings', icon: <Settings size={20} />, label: 'Settings', color: 'bg-zinc-500' },
+  { id: 'syntax-terminal', icon: <Terminal size={20} />, label: 'Syntax', color: 'bg-zinc-800' },
 ];
 
 export function Dock({ openApp, activeAppId, openApps }: DockProps) {

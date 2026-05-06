@@ -26,6 +26,7 @@ const ALL_APPS: { id: AppId; icon: React.ReactNode; label: string; desc: string 
   { id: 'notes', icon: <FileText size={20} />, label: 'Notes', desc: 'Metropolis markdown editor' },
   { id: 'browser', icon: <Globe size={20} />, label: 'Hyperlink', desc: 'External web interface' },
   { id: 'settings', icon: <Settings size={20} />, label: 'Settings', desc: 'Configuration and system info' },
+  { id: 'syntax-terminal', icon: <Terminal size={20} />, label: 'Syntax Terminal', desc: 'Legacy alpha shell prototype' },
 ];
 
 const POWER_OPTIONS: { id: SystemState; icon: React.ReactNode; label: string; color: string; desc: string }[] = [

@@ -22,6 +22,7 @@ const NotesApp = React.lazy(() => import('./components/apps/Notes'));
 const FilesApp = React.lazy(() => import('./components/apps/Files'));
 const SettingsApp = React.lazy(() => import('./components/apps/Settings'));
 const BrowserApp = React.lazy(() => import('./components/apps/Browser'));
+const SyntaxTerminalApp = React.lazy(() => import('./components/apps/SyntaxTerminal'));
 
 export default function App() {
   const os = useOS();
@@ -36,6 +37,7 @@ export default function App() {
       case 'files': return <FilesApp windowId={windowId} />;
       case 'settings': return <SettingsApp windowId={windowId} />;
       case 'browser': return <BrowserApp windowId={windowId} />;
+      case 'syntax-terminal': return <SyntaxTerminalApp windowId={windowId} />;
       default: return (
         <div className="flex items-center justify-center h-full text-white/20 select-none">
           <div className="text-center">

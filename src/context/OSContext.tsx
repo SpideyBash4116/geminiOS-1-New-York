@@ -24,6 +24,7 @@ const DEFAULT_APPS: Record<AppId, { title: string; defaultWidth: number; default
   files: { title: 'Files', defaultWidth: 800, defaultHeight: 500 },
   settings: { title: 'Settings', defaultWidth: 500, defaultHeight: 450 },
   browser: { title: 'Hyperlink', defaultWidth: 1000, defaultHeight: 700 },
+  'syntax-terminal': { title: 'Syntax Terminal', defaultWidth: 650, defaultHeight: 450 },
 };
 
 export function OSProvider({ children }: { children: ReactNode }) {

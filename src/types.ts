@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type AppId = 'terminal' | 'echo' | 'notes' | 'files' | 'settings' | 'browser';
+export type AppId = 'terminal' | 'echo' | 'notes' | 'files' | 'settings' | 'browser' | 'syntax-terminal';
 
 export interface WindowState {
   id: string;

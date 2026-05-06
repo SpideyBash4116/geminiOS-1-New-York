@@ -58,13 +58,28 @@ export default function Terminal({ windowId }: { windowId?: string }) {
 
     switch (trimmed) {
       case 'help':
-        newLogs.push({ type: 'output', text: 'Available commands:\nhelp - Show this message\nclear - Clear terminal\nls - List directory contents\npwd - Show current directory\ncat [file] - Display file content\ntouch [file] - Create empty file\nmkdir [dir] - Create directory\nrm [file] - Remove file\necho [text] - Print text\nwhoami - Show current user\nneofetch - Show system info' });
+        newLogs.push({ type: 'output', text: 'Available commands:\nhelp - Show this message\nclear - Clear terminal\nls - List directory contents\npwd - Show current directory\ncd [dir] - Change directory\ncat [file] - Display file content\ntouch [file] - Create empty file\nmkdir [dir] - Create directory\nrm [file] - Remove file\nmv [src] [dest] - Move file\necho [text] - Print text\nbeep - Play system alert\nwhoami - Show current user\nneofetch - Show system info' });
         break;
       case 'clear':
         setLogs([]);
         return;
       case 'pwd':
         newLogs.push({ type: 'output', text: `/${currentPath.replace('root/', '')}` });
+        break;
+      case 'cd':
+        if (!args[0] || args[0] === '~') {
+          setCurrentPath('user');
+        } else if (args[0] === '..') {
+          const item = vfs[currentPath];
+          if (item?.parentId) setCurrentPath(item.parentId);
+        } else {
+          const targetId = currentFolder.children?.find(id => vfs[id].name === args[0]);
+          if (targetId && vfs[targetId].type === 'directory') {
+            setCurrentPath(targetId);
+          } else {
+            newLogs.push({ type: 'error', text: `cd: no such directory: ${args[0]}` });
+          }
+        }
         break;
       case 'ls':
         const content = currentFolder.children?.map(id => {
@@ -78,6 +93,29 @@ export default function Terminal({ windowId }: { windowId?: string }) {
         break;
       case 'echo':
         newLogs.push({ type: 'output', text: args.join(' ') });
+        break;
+      case 'beep':
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+        oscillator.connect(audioCtx.destination);
+        oscillator.start(); oscillator.stop(audioCtx.currentTime + 0.1);
+        newLogs.push({ type: 'output', text: '[BEEP]' });
+        break;
+      case 'mv':
+        if (args.length < 2) {
+            newLogs.push({ type: 'error', text: 'mv: missing destination file operand' });
+        } else {
+            const srcId = currentFolder.children?.find(id => vfs[id].name === args[0]);
+            if (srcId) {
+                const item = vfs[srcId];
+                writeFile(`mv-${Date.now()}`, args[1], item.content || '', item.type, currentPath);
+                deleteFile(srcId);
+                newLogs.push({ type: 'output', text: `Moved ${args[0]} to ${args[1]}` });
+            } else {
+                newLogs.push({ type: 'error', text: `mv: cannot stat '${args[0]}': No such file` });
+            }
+        }
         break;
       case 'cat':
         if (!args[0]) {
