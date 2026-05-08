@@ -13,6 +13,7 @@ import { StartMenu } from './components/StartMenu';
 import { LoginScreen } from './components/LoginScreen';
 import { RecoveryScreen } from './components/RecoveryScreen';
 import { SecurityOverlay } from './components/SecurityOverlay';
+import { SetupScreen } from './components/SetupScreen';
 import { SystemOverlays } from './components/SystemOverlays';
 
 // Lazy load apps to keep initial bundle light
@@ -51,10 +52,16 @@ export default function App() {
 
   React.useEffect(() => {
     if (os.systemState === 'booting') {
-       const timer = setTimeout(() => os.setSystemState('login'), 2000);
+       const timer = setTimeout(() => {
+         if (os.isSetupCompleted) {
+           os.setSystemState('login');
+         } else {
+           os.setSystemState('setup');
+         }
+       }, 2000);
        return () => clearTimeout(timer);
     }
-  }, [os.systemState, os.setSystemState]);
+  }, [os.systemState, os.setSystemState, os.isSetupCompleted]);
 
   if (os.systemState === 'booting') {
     return (
@@ -74,6 +81,7 @@ export default function App() {
   }
 
   if (os.systemState === 'login') return <LoginScreen />;
+  if (os.systemState === 'setup') return <SetupScreen />;
   if (os.systemState === 'recovery') return <RecoveryScreen />;
   if (os.systemState === 'security_options') return <SecurityOverlay />;
 

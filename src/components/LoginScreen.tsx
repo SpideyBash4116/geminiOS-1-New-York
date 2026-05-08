@@ -9,13 +9,14 @@ import { User, Key, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useOS } from '../context/OSContext';
 
 export function LoginScreen() {
-  const { setSystemState, wallpaper } = useOS();
+  const { setSystemState, wallpaper, users, currentUserId, switchUser } = useOS();
   const [password, setPassword] = useState('');
   const [isError, setIsError] = useState(false);
 
+  const currentUser = users.find(u => u.id === currentUserId) || users[0];
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // In geminiOS, any password works for now, or we can make it "admin"
     if (password === '1234' || password === '') {
        setSystemState('desktop');
     } else {
@@ -37,6 +38,22 @@ export function LoginScreen() {
         className="z-10 flex flex-col items-center gap-8 w-full max-w-sm px-6"
       >
         <div className="flex flex-col items-center gap-4">
+           {users.length > 1 && (
+             <div className="flex gap-4 mb-4">
+                {users.map(u => (
+                  <button 
+                    key={u.id}
+                    onClick={() => switchUser(u.id)}
+                    className={`w-12 h-12 rounded-full border-2 transition-all ${
+                      currentUserId === u.id ? 'border-[#3B82F6] scale-110 shadow-lg ring-4 ring-[#3B82F6]/20' : 'border-white/10 opacity-40 hover:opacity-100'
+                    } flex items-center justify-center bg-white/5 overflow-hidden`}
+                  >
+                    <User size={20} className="text-white/60" />
+                  </button>
+                ))}
+             </div>
+           )}
+
            <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-[#3B82F6] to-[#8B5CF6] p-1 shadow-2xl">
               <div className="w-full h-full rounded-full bg-os-bg flex items-center justify-center border border-white/10">
                  <User size={40} className="text-white/80" />
@@ -44,8 +61,10 @@ export function LoginScreen() {
            </div>
            
            <div className="text-center">
-              <h1 className="text-3xl font-bold tracking-tighter text-white">Guest User</h1>
-              <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">spideybash4116@gemini</span>
+              <h1 className="text-3xl font-bold tracking-tighter text-white">{currentUser?.username || 'Guest'}</h1>
+              <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">
+                {currentUser?.role === 'admin' ? 'Root Administrator' : 'Standard Node'}
+              </span>
            </div>
         </div>
 

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { AppId, WindowState, OSState, FileEntry, OSContextType } from '../types';
 
 const OSContext = createContext<OSContextType | undefined>(undefined);
@@ -35,7 +35,98 @@ export function OSProvider({ children }: { children: ReactNode }) {
     vfs: INITIAL_VFS,
     isStartMenuOpen: false,
     systemState: 'booting',
+    isSetupCompleted: localStorage.getItem('geminiOS_setup_completed') === 'true',
+    disks: [
+      { id: 'disk-0', name: 'Metropolis Core (NVMe)', capacity: 512, used: 24, type: 'NVMe', isSystem: true },
+      { id: 'disk-1', name: 'Hyperlink Cache (SSD)', capacity: 1024, used: 0, type: 'SSD', isSystem: false },
+      { id: 'disk-2', name: 'Empty Node Storage', capacity: 2048, used: 0, type: 'HDD', isSystem: false },
+    ],
+    selectedDiskId: localStorage.getItem('geminiOS_selected_disk'),
+    users: JSON.parse(localStorage.getItem('geminiOS_users') || '[]'),
+    currentUserId: localStorage.getItem('geminiOS_current_user'),
+    config: JSON.parse(localStorage.getItem('geminiOS_config') || '{"internetMode": "manual"}'),
   });
+
+  const completeSetup = useCallback((setupData: { username: string; internetMode: 'auto' | 'manual' }) => {
+    const adminUser: import('../types').UserProfile = {
+      id: 'user-' + Date.now(),
+      username: setupData.username,
+      role: 'admin',
+    };
+    
+    const users = [adminUser];
+    const config = { internetMode: setupData.internetMode };
+
+    localStorage.setItem('geminiOS_setup_completed', 'true');
+    localStorage.setItem('geminiOS_users', JSON.stringify(users));
+    localStorage.setItem('geminiOS_current_user', adminUser.id);
+    localStorage.setItem('geminiOS_config', JSON.stringify(config));
+
+    setState(prev => ({ 
+      ...prev, 
+      isSetupCompleted: true, 
+      systemState: 'login',
+      users,
+      currentUserId: adminUser.id,
+      config
+    }));
+  }, []);
+
+  const switchUser = useCallback((userId: string) => {
+    localStorage.setItem('geminiOS_current_user', userId);
+    setState(prev => ({ ...prev, currentUserId: userId, systemState: 'login' }));
+  }, []);
+
+  const addUser = useCallback((username: string, role: 'admin' | 'user') => {
+    setState(prev => {
+      const newUser: import('../types').UserProfile = {
+        id: 'user-' + Date.now(),
+        username,
+        role,
+      };
+      const users = [...prev.users, newUser];
+      localStorage.setItem('geminiOS_users', JSON.stringify(users));
+      return { ...prev, users };
+    });
+  }, []);
+
+  const updateConfig = useCallback((newConfig: Partial<import('../types').OSConfig>) => {
+    setState(prev => {
+      const config = { ...prev.config, ...newConfig };
+      localStorage.setItem('geminiOS_config', JSON.stringify(config));
+      return { ...prev, config };
+    });
+  }, []);
+
+  const selectDisk = useCallback((id: string) => {
+    localStorage.setItem('geminiOS_selected_disk', id);
+    setState(prev => ({ 
+      ...prev, 
+      selectedDiskId: id,
+      disks: prev.disks.map(d => ({ ...d, isSystem: d.id === id }))
+    }));
+  }, []);
+
+  const factoryReset = useCallback(() => {
+    localStorage.removeItem('geminiOS_setup_completed');
+    localStorage.removeItem('geminiOS_selected_disk');
+    localStorage.removeItem('geminiOS_users');
+    localStorage.removeItem('geminiOS_current_user');
+    localStorage.removeItem('geminiOS_config');
+    setState(prev => ({ 
+      ...prev, 
+      isSetupCompleted: false, 
+      systemState: 'booting',
+      windows: [],
+      activeWindowId: null,
+      isStartMenuOpen: false,
+      selectedDiskId: null,
+      users: [],
+      currentUserId: null,
+      config: { internetMode: 'manual' },
+      disks: prev.disks.map(d => ({ ...d, isSystem: d.id === 'disk-0', used: d.id === 'disk-0' ? 24 : 0 }))
+    }));
+  }, []);
 
   const setSystemState = useCallback((systemState: import('../types').SystemState) => {
     setState(prev => ({ ...prev, systemState, isStartMenuOpen: false }));
@@ -206,6 +297,12 @@ export function OSProvider({ children }: { children: ReactNode }) {
       toggleStartMenu,
       setSystemState,
       logout,
+      completeSetup,
+      factoryReset,
+      selectDisk,
+      switchUser,
+      addUser,
+      updateConfig,
       writeFile,
       deleteFile,
     }}>
